@@ -1,5 +1,13 @@
 <?php
 $capabilities = [
+    'block/dashboard:addinstance' => [
+        'riskbitmask' => RISK_SPAM,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_BLOCK,
+        'archetypes' => [
+            'manager' => CAP_ALLOW
+        ]
+    ],
     'block/dashboard:coach' => [
         'riskbitmask' => RISK_SPAM,
         'captype' => 'write',
