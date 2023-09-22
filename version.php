@@ -8,5 +8,5 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'block_dashboard';
-$plugin->version = 14;
+$plugin->version = 15;
 $plugin->requires = 2016052314; // Moodle version

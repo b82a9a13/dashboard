@@ -27,7 +27,7 @@ class block_dashboard extends block_base{
             <img src='../blocks/dashboard/classes/img/My Files.png' class='dashboard-img' onclick='window.location.href=`../user/files.php`'>
             <img src='../blocks/dashboard/classes/img/My Evidence.png' class='dashboard-img' onclick='window.location.href=`../admin/tool/lp/user_evidence_list.php`'>
             <img src='../blocks/dashboard/classes/img/My Badges.png' class='dashboard-img' onclick='window.location.href=`../badges/mybadges.php`'>
-            <img src='../blocks/dashboard/classes/img/My Certs.png' class='dashboard-img' onclick='window.location.href=`../mod/customcert/my_certificates.php?userid=".$this->userid()."`'>
+            <img src='../blocks/dashboard/classes/img/My Certs.png' class='dashboard-img' onclick='window.location.href=`../mod/customcert/my_certificates.php?userid=".$this->get_userid()."`'>
         ";
         $context = context_system::instance();
         if($role === 'admin' || has_capability('block/dashboard:admin', $context)){
@@ -81,11 +81,16 @@ class block_dashboard extends block_base{
             </script>
         ";
     }
-    public function role(){
+
+    private function get_userid(){
         global $USER;
-        $user = $USER->id;
+        return $USER->id;
+    }
+
+    private function role(){
+        $user = $this->get_userid();
         global $DB;
-        $assignments = $DB->get_records_sql('SELECT * FROM {role_assignments} where userid = ?', [$user]);
+        $assignments = $DB->get_records_sql('SELECT id, roleid FROM {role_assignments} where userid = ?', [$user]);
         //admin, coach, learner
         $role = [false, false, false];
         foreach($assignments as $assignment){
@@ -105,51 +110,33 @@ class block_dashboard extends block_base{
             return 'learner';
         }
     }
-    public function courseenrolled($type){
-        global $USER;
-        $user = $USER->id;
+
+    private function courseenrolled($type){
+        $user = $this->get_userid();
         global $DB;
-        $roleid = [];
+        $records = null;
         if($type === 'coach'){
-            $roleid = [3, 4];
+            $records = $DB->get_records_sql('SELECT DISTINCT {enrol}.courseid as courseid FROM {enrol}
+                INNER JOIN {user_enrolments} ON {user_enrolments}.enrolid = {enrol}.id
+                INNER JOIN {context} ON {context}.instanceid = {enrol}.courseid
+                INNER JOIN {role_assignments} ON {role_assignments}.contextid = {context}.id
+                INNER JOIN {course} ON {course}.id = {enrol}.courseid
+                WHERE {user_enrolments}.userid = {role_assignments}.userid AND {role_assignments}.roleid IN (3,4) AND {user_enrolments}.status = 0 AND {role_assignments}.userid = ?',
+            [$user]);
         } elseif($type === 'learner'){
-            $roleid = [5];
+            $records = $DB->get_records_sql('SELECT DISTINCT {enrol}.courseid as courseid FROM {enrol}
+                INNER JOIN {user_enrolments} ON {user_enrolments}.enrolid = {enrol}.id
+                INNER JOIN {context} ON {context}.instanceid = {enrol}.courseid
+                INNER JOIN {role_assignments} ON {role_assignments}.contextid = {context}.id
+                INNER JOIN {course} ON {course}.id = {enrol}.courseid
+                WHERE {user_enrolments}.userid = {role_assignments}.userid AND {role_assignments}.roleid = 5 AND {user_enrolments}.status = 0 AND {role_assignments}.userid = ?',
+            [$user]);
         }
-        $userEnrolments = $DB->get_records_sql('SELECT enrolid, status FROM {user_enrolments} WHERE userid = ? AND status = ?', [$user, 0]);
-        $enrolTable = $DB->get_records('enrol');
-        $courseids = [];
-        foreach($userEnrolments as $userEnrol){
-            foreach($enrolTable as $enrolTab){
-                if($enrolTab->id == $userEnrol->enrolid && $userEnrol->status !== 1){
-                    array_push($courseids, [$enrolTab->courseid]);
-                }
-            }
+        $array = [];
+        foreach($records as $record){
+            array_push($array, $record->courseid);
         }
-        $temp = [];
-        $contexts = $DB->get_records('context');
-        $roleAssignments = $DB->get_records_sql('SELECT * FROM {role_assignments} WHERE userid = ?',[$user]);
-        foreach($contexts as $context){
-            foreach($roleAssignments as $roleAssign){
-                if($roleAssign->contextid == $context->id && $roleAssign->roleid == $roleid[0]){
-                    array_push($temp ,[$context->instanceid]);
-                } else if ($roleAssign->contextid == $context->id && $roleAssign->roleid == $roleid[1] && count($roleid) == 2){
-                    array_push($temp, [$context->instanceid]);
-                }
-            }
-        }
-        $temp2 = [];
-        foreach($temp as $tem){
-            foreach($courseids as $courseid){
-                if($courseid[0] == $tem[0]){
-                    array_push($temp2, $courseid);
-                }
-            }
-        }
-        return $temp2[0][0];
-    }
-    public function userid(){
-        global $USER;
-        return $USER->id;
+        return $array[0];
     }
 }
 ?>
